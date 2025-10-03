@@ -44,77 +44,11 @@ app.post('/api/process', upload.fields([
   { name: 'frequencia', maxCount: 1 },
   { name: 'ausentes', maxCount: 1 }
 ]), async (req, res) => {
-  try {
-    const { date } = req.body;
-
-    if (!date) {
-      return res.status(400).json({ error: 'Date is required' });
-    }
-
-    const frequenciaFile = req.files['frequencia'] ? req.files['frequencia'][0] : null;
-    const ausentesFile = req.files['ausentes'] ? req.files['ausentes'][0] : null;
-
-    if (!frequenciaFile && !ausentesFile) {
-      return res.status(400).json({ error: 'At least one PDF file is required' });
-    }
-
-    // Parse date and get day of week
-    const dataProcessamento = new Date(date);
-    const diaSemana = getDayOfWeek(dataProcessamento);
-
-    // Extract data from PDFs
-    let presentes = [];
-    let ausentes = [];
-
-    if (frequenciaFile) {
-      const frequenciaData = await extractPdfFrequencia(frequenciaFile.buffer);
-      presentes = frequenciaData
-        .filter(r => r.sentido === 'Entrada')
-        .map(r => r.matricula);
-    }
-
-    if (ausentesFile) {
-      const ausentesData = await extractPdfAusentes(ausentesFile.buffer);
-      ausentes = ausentesData.map(a => a.matricula);
-    }
-
-    // Get all students
-    const todosAlunos = await studentService.getAllAlunos();
-
-    // Determine who was absent
-    const matriculasAusentes = todosAlunos
-      .map(a => a.matricula)
-      .filter(m => !presentes.includes(m) || ausentes.includes(m));
-
-    // Process absences by discipline
-    const faltasPorDisciplina = [];
-
-    for (const matricula of matriculasAusentes) {
-      const aluno = await studentService.getAlunoByMatricula(matricula);
-      if (!aluno) continue;
-
-      // Get all schedules for this student's turma on this day
-      const horariosAluno = await scheduleService.getHorariosByTurma(aluno.turma);
-      const horariosDia = horariosAluno.filter(h => h.dia_semana === diaSemana);
-
-      // Register absence for each discipline
-      for (const horario of horariosDia) {
-        faltasPorDisciplina.push({
-          matricula: aluno.matricula,
-          nome: aluno.nome,
-          turma: aluno.turma,
-          disciplina: horario.disciplina,
-          data: date
-        });
-      }
-    }
-
-    // Register all absences in database
-    let registrosAtualizados = 0;
-    for (const falta of faltasPorDisciplina) {
-      await frequencyService.registrarFalta(falta.matricula, falta.disciplina);
-      registrosAtualizados++;
-    }
+  return res.status(501).json({ 
+    error: 'Processamento de PDF temporariamente desabilitado no ambiente Bolt',
+    message: 'As outras funcionalidades (gerenciamento de alunos, horários e quadro de faltas) estão funcionando normalmente.'
+  });
+});
 
     res.json({
       message: `Processamento concluído. ${registrosAtualizados} registros de falta foram atualizados no banco de dados.`,
